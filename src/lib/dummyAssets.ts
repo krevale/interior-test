@@ -1,5 +1,13 @@
 import type { Facing, FloorQuad, SpriteCell, SpriteSet, Vec2 } from '../types/scene';
-import { boundsOf, project, rotateY, type IsoCamera, type Point3 } from './isoCamera';
+import {
+  boundsOf,
+  project,
+  projectBoxVertices,
+  projectGroundPoint,
+  rotateY,
+  type IsoCamera,
+  type Point3,
+} from './isoCamera';
 
 /**
  * Placeholder asset generation.
@@ -34,21 +42,6 @@ const FACES: BoxFace[] = [
   { indices: [0, 3, 7, 4], normal: { x: -1, y: 0, z: 0 } },
 ];
 
-function boxVertices(w: number, h: number, d: number): Point3[] {
-  const x = w / 2;
-  const z = d / 2;
-  return [
-    { x: -x, y: 0, z: -z },
-    { x: x, y: 0, z: -z },
-    { x: x, y: 0, z: z },
-    { x: -x, y: 0, z: z },
-    { x: -x, y: h, z: -z },
-    { x: x, y: h, z: -z },
-    { x: x, y: h, z: z },
-    { x: -x, y: h, z: z },
-  ];
-}
-
 /** Signed area of a projected polygon. Its sign encodes winding direction. */
 function signedArea(vertices: { x: number; y: number }[], indices: number[]): number {
   let area = 0;
@@ -80,16 +73,6 @@ export function visibleFaces(vertices: { x: number; y: number }[]): number[] {
 /** Index into FACES of the underside, which must never be visible. */
 export const BOTTOM_FACE_INDEX = 1;
 
-export function projectBoxVertices(
-  spec: Pick<DummyBoxSpec, 'widthMeters' | 'heightMeters' | 'depthMeters'>,
-  facing: Facing,
-  camera: IsoCamera,
-) {
-  return boxVertices(spec.widthMeters, spec.heightMeters, spec.depthMeters)
-    .map((v) => rotateY(v, facing * 45))
-    .map((v) => project(v, camera));
-}
-
 function shade(hex: string, factor: number): string {
   const value = parseInt(hex.slice(1), 16);
   const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
@@ -120,8 +103,7 @@ export function renderBoxSprite(
   const rotation = facing * 45;
   const vertices = projectBoxVertices(spec, facing, camera);
 
-  // The ground contact point is the footprint centre projected at y = 0.
-  const groundPoint = project(rotateY({ x: 0, y: 0, z: 0 }, rotation), camera);
+  const groundPoint = projectGroundPoint(facing, camera);
 
   const bounds = boundsOf([...vertices, groundPoint]);
   const width = Math.ceil(bounds.maxX - bounds.minX) + PADDING * 2;

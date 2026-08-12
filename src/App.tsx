@@ -5,6 +5,7 @@ import { rotateFacing } from './lib/facing';
 import {
   addObject,
   removeObject,
+  setAssetSprites,
   setFacing,
   updateObject,
   useSceneStore,
@@ -129,6 +130,13 @@ export default function App() {
   return (
     <div className="app">
       <Toolbar
+        assets={Object.values(store.scene.assets)}
+        style={store.scene.style}
+        onSprites={(assetId, sprites) =>
+          store.commit((scene) =>
+            setAssetSprites(scene, assetId, scene.style.id, sprites),
+          )
+        }
         settings={settings}
         onSettings={(patch) => setSettings((s) => ({ ...s, ...patch }))}
         selected={selected}

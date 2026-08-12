@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useReducer } from 'react';
-import type { Facing, PlacedObject, Scene } from '../types/scene';
+import type { Facing, PlacedObject, Scene, SpriteSet } from '../types/scene';
 
 /**
  * Undo/redo is here from the start rather than bolted on later. Retrofitting
@@ -169,4 +169,31 @@ export function addObject(scene: Scene, object: PlacedObject): Scene {
 
 export function setFloorQuad(scene: Scene, quad: Scene['room']['floor']): Scene {
   return { ...scene, room: { ...scene.room, floor: quad } };
+}
+
+/** Merge a freshly generated sprite set into an asset, for one style. */
+export function setAssetSprites(
+  scene: Scene,
+  assetId: string,
+  styleId: string,
+  sprites: SpriteSet,
+): Scene {
+  const asset = scene.assets[assetId];
+  if (!asset) return scene;
+  return {
+    ...scene,
+    assets: {
+      ...scene.assets,
+      [assetId]: {
+        ...asset,
+        spritesByStyle: {
+          ...asset.spritesByStyle,
+          [styleId]: {
+            symmetric: sprites.symmetric,
+            cells: { ...asset.spritesByStyle[styleId]?.cells, ...sprites.cells },
+          },
+        },
+      },
+    },
+  };
 }

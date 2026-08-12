@@ -1,7 +1,11 @@
-import type { PlacedObject } from '../types/scene';
+import type { FurnitureAsset, PlacedObject, SpriteSet, Style } from '../types/scene';
 import type { CanvasSettings } from './RoomCanvas';
+import { GeneratePanel } from './GeneratePanel';
 
 interface Props {
+  assets: FurnitureAsset[];
+  style: Style;
+  onSprites: (assetId: string, sprites: SpriteSet) => void;
   settings: CanvasSettings;
   onSettings: (patch: Partial<CanvasSettings>) => void;
   selected: PlacedObject | null;
@@ -17,6 +21,9 @@ interface Props {
 }
 
 export function Toolbar({
+  assets,
+  style,
+  onSprites,
   settings,
   onSettings,
   selected,
@@ -74,6 +81,13 @@ export function Toolbar({
           ))}
         </div>
       </section>
+
+      <GeneratePanel
+        assets={assets}
+        style={style}
+        selectedAssetId={selected?.assetId ?? null}
+        onSprites={onSprites}
+      />
 
       <section>
         <h2>Canvas</h2>

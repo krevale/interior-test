@@ -4,9 +4,10 @@ A 2.5D sprite-based interior designer: a generated isometric room background
 with furniture sprites layered on top and manipulated in 2D. No 3D engine, no
 novel-view synthesis, no navigable camera.
 
-This repo currently contains **step 1 only**: the interaction layer, built
-end-to-end against procedurally generated placeholder assets. No image
-generation API is wired up, and nothing here costs a generation call.
+This repo contains the **interaction layer** and the **sprite generation
+pipeline**, driven manually. No image API is wired up and nothing here costs a
+generation call: you copy a prompt, run it wherever your subscription already
+works, and drop the resulting sheet back in.
 
 ```bash
 npm install
@@ -25,6 +26,8 @@ npm run typecheck
 - Four-handle floor calibration
 - Undo/redo (`Ctrl`/`Cmd`+`Z`, `+Shift` to redo)
 - `[` / `]` nudge an object's manual depth-sort tiebreak
+- Sprite sheet prompt generation, chroma keying, slicing, and per-cell
+  diagnostics — see below
 
 ## Decisions worth knowing before extending this
 
@@ -64,17 +67,71 @@ sorting by centre gets that backwards. `zOffset` exists for the residual cases.
 projection it invented for a generated room, and inferring one is guesswork.
 Four dragged corners give an exact homography in a couple of seconds.
 
+## Generating sprites (manual loop)
+
+In the **Generate sprites** panel: pick an asset and a coverage level, copy the
+prompt, run it in whatever image tool you already pay for, then drop the
+returned sheet back into the file input. It slices, keys, and applies straight
+onto the canvas.
+
+Coverage levels exist because mirroring does half the work:
+
+| Setting | Sprites generated | Facings covered |
+| --- | --- | --- |
+| diagonal | 2 | 4 |
+| canonical | 5 | 8 |
+| all | 8 | 8 (asymmetric pieces only) |
+
+**All facings come back in one image, not one call each.** Consistency is then
+enforced within a single generation rather than hoped for across several, it
+costs one image instead of N, and a 2K sheet sliced 2x2 still leaves ~1024px per
+sprite — well past what a 2.5D canvas needs.
+
+**Sprites are generated onto flat chroma green and keyed out afterwards.** Image
+models don't emit alpha, so alpha extraction has to happen after the style
+match. Keying is done on green dominance (`g - max(r, b)`) rather than distance
+to a fixed RGB value, which survives the uneven backdrop shading models tend to
+produce, with a soft alpha ramp so edges don't turn jagged and a despill pass so
+they don't keep a green halo once composited.
+
+**Anchors are computed geometrically, not guessed from pixels.** We know the
+asset's real dimensions and the camera the sheet was generated against, so the
+ground-contact point comes from projecting the object's box at that facing and
+seeing where its footprint centre lands relative to the projected silhouette.
+That's exact where bottom-centre-of-silhouette is approximate, and the metric
+scale (`renderedPxPerMeter`) falls out of the same comparison.
+
+### The diagnostics are the point
+
+That same comparison measures whether the model actually held the camera
+contract, which is the riskiest assumption in the whole design. Each cell
+reports its measured size and an **aspect error** — how far its proportions
+depart from what the projection predicts. Cells past tolerance are flagged
+amber, and `scaleSpread` reports whether the sheet is internally consistent or
+whether sprites will jump size as they rotate.
+
+So the spike is a measurement rather than an eyeball test: run a few product
+photos through, read the numbers, and find out whether multi-angle sheets hold
+identity and camera before building anything else on top of them.
+
 ## Layout
 
 ```
-src/types/scene.ts      data model
-src/lib/facing.ts       facing -> (sprite, mirrored) resolution
-src/lib/homography.ts   floor plane: DLT solve, projection, px-per-metre, snapping
-src/lib/layout.ts       per-object screen placement + depth sort
-src/lib/shadow.ts       procedural contact shadows
-src/lib/sceneStore.ts   immutable scene + undo/redo
-src/lib/dummyAssets.ts  placeholder sprite/room generation (delete once real)
-src/components/         Konva canvas, calibrator, toolbar
+src/types/scene.ts           data model
+src/lib/facing.ts            facing -> (sprite, mirrored) resolution
+src/lib/homography.ts        floor plane: DLT solve, projection, px-per-metre, snapping
+src/lib/isoCamera.ts         axonometric projection shared by renderer and slicer
+src/lib/layout.ts            per-object screen placement + depth sort
+src/lib/shadow.ts            procedural contact shadows
+src/lib/sceneStore.ts        immutable scene + undo/redo
+src/lib/dummyAssets.ts       placeholder sprite/room generation (delete once real)
+src/lib/generation/
+  prompt.ts                  sheet + room prompt templates, camera contract
+  chroma.ts                  keying, despill, silhouette measurement (pure)
+  sheet.ts                   slicing, geometric anchors, camera diagnostics
+  raster.ts                  browser encode/decode
+  provider.ts                provider interface + manual implementation
+src/components/              Konva canvas, calibrator, toolbar, generate panel
 ```
 
 ## Placeholder assets
@@ -87,32 +144,18 @@ goes away once sprites come from the generation pipeline.
 
 ## Not built yet
 
-Everything downstream of the interaction layer:
+1. **Room ingestion.** `buildRoomPrompt` exists and de-furnishes as well as
+   restyles, but there's no upload flow — rooms are still the placeholder. The
+   de-furnishing matters: anything left in the background is baked in and
+   permanently un-draggable, which contradicts the whole premise.
+2. **Scene persistence.** State is in memory and dies with a refresh.
+3. **Chat-to-edit.** Natural language → tool calls mutating
+   `fx`/`fz`/`facing`/`scale`. Spatial edits must never trigger regeneration;
+   only appearance changes do.
+4. **An API-backed provider.** `GenerationProvider` is the seam; the manual
+   implementation is the only one so far. Adding an API one is a config change
+   rather than a rewrite.
 
-1. Room background generation — restyle **and de-furnish** the uploaded photo.
-   The source room's own furniture would otherwise be baked into the background
-   and permanently un-draggable, which conflicts with the entire premise.
-2. Furniture sprite pipeline: cutout → style match → **matte again**. Image
-   models return opaque images, so alpha extraction has to run after the style
-   match, not just before it. Edge quality there decides whether composites look
-   pasted-on.
-3. Scene persistence.
-4. Chat-to-edit: natural language → tool calls mutating `x`/`z`/`facing`/`scale`.
-   Spatial edits must never trigger regeneration; only appearance changes do.
-
-Generation should sit behind a provider interface with two implementations — one
-manual (export a request bundle to a folder, drop the result back in) and one
-API-backed — so the app stays developable and testable with no credentials.
-
-### The risk to validate first
-
-Style matching conflates two jobs, and only one of them is easy. Restyling is
-straightforward; **viewpoint normalization** — turning a straight-on product
-photo into a 3/4 isometric view — is novel-view synthesis sitting in the middle
-of the critical path. Pin the camera in the prompt as an explicit contract and
-test it against ~20 awkward product photos before building anything on top of it.
-
-Generating all angles as a single contact sheet, then slicing, is likely the
-move: consistency is enforced within one image rather than hoped for across
-several calls, it costs one generation instead of N, and a 2K sheet sliced 2x2
-still yields ~1024px per sprite.
+Still worth doing on the sprite side: semi-transparent materials (glass tops,
+sheer shades) are where chroma keying degrades, and there's no handling for a
+model that ignores the grid badly enough that objects cross cell boundaries.

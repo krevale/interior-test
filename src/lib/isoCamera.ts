@@ -50,6 +50,48 @@ export function rotateY(p: Point3, degrees: number): Point3 {
   };
 }
 
+/**
+ * Corners of an axis-aligned box standing on the floor, ordered 0-3 along the
+ * bottom (y=0) and 4-7 along the top, each running (-x,-z) -> (x,-z) -> (x,z)
+ * -> (-x,z).
+ */
+export function boxVertices(width: number, height: number, depth: number): Point3[] {
+  const x = width / 2;
+  const z = depth / 2;
+  return [
+    { x: -x, y: 0, z: -z },
+    { x: x, y: 0, z: -z },
+    { x: x, y: 0, z: z },
+    { x: -x, y: 0, z: z },
+    { x: -x, y: height, z: -z },
+    { x: x, y: height, z: -z },
+    { x: x, y: height, z: z },
+    { x: -x, y: height, z: z },
+  ];
+}
+
+export interface BoxDimensions {
+  widthMeters: number;
+  heightMeters: number;
+  depthMeters: number;
+}
+
+/** The box's corners as they land on screen at a given facing. */
+export function projectBoxVertices(
+  box: BoxDimensions,
+  facingIndex: number,
+  camera: IsoCamera,
+): Projected[] {
+  return boxVertices(box.widthMeters, box.heightMeters, box.depthMeters)
+    .map((v) => rotateY(v, facingIndex * 45))
+    .map((v) => project(v, camera));
+}
+
+/** Where the box meets the floor: its footprint centre, projected at y = 0. */
+export function projectGroundPoint(facingIndex: number, camera: IsoCamera): Projected {
+  return project(rotateY({ x: 0, y: 0, z: 0 }, facingIndex * 45), camera);
+}
+
 export interface Bounds {
   minX: number;
   minY: number;

@@ -126,6 +126,35 @@ kbd {
   font-size: 0.75rem;
 }
 
+select,
+input[type='file'] {
+  width: 100%;
+  background: #232836;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+.diagnostics {
+  width: 100%;
+  margin-top: 0.5rem;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.diagnostics td {
+  padding: 0.15rem 0.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.diagnostics tr.warn td {
+  color: #fbbf24;
+}
+
 .stage-wrap {
   padding: 1.5rem;
   overflow: auto;

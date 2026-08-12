@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Facing } from '../types/scene';
-import { BOTTOM_FACE_INDEX, projectBoxVertices, visibleFaces } from './dummyAssets';
-import type { IsoCamera } from './isoCamera';
+import { BOTTOM_FACE_INDEX, visibleFaces } from './dummyAssets';
+import { projectBoxVertices, type IsoCamera } from './isoCamera';
 
 const camera: IsoCamera = { elevationDeg: 34, azimuthDeg: 45, pxPerMeter: 110 };
 const box = { widthMeters: 2.1, heightMeters: 0.78, depthMeters: 0.92 };
