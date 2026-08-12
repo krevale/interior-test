@@ -30,6 +30,7 @@ export function GeneratePanel({ assets, style, selectedAssetId, onSprites }: Pro
   const [status, setStatus] = useState<string | null>(null);
   const [diagnostics, setDiagnostics] = useState<SliceDiagnostics[]>([]);
   const [copied, setCopied] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const asset = assets.find((a) => a.id === (selectedAssetId ?? assetId)) ?? assets[0];
@@ -42,9 +43,15 @@ export function GeneratePanel({ assets, style, selectedAssetId, onSprites }: Pro
   if (!asset || !job) return null;
 
   const copy = async () => {
-    await navigator.clipboard.writeText(job.prompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(job.prompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard access is refused in embedded and insecure contexts. Fall
+      // back to showing the prompt so it can still be selected by hand.
+      setRevealed(true);
+    }
   };
 
   const ingest = async (file: File) => {
@@ -91,7 +98,16 @@ export function GeneratePanel({ assets, style, selectedAssetId, onSprites }: Pro
         {job.layout.cols}&times;{job.layout.rows} sheet, {job.facings.length} cells
       </p>
 
-      <button onClick={copy}>{copied ? 'Copied' : 'Copy prompt'}</button>
+      <div className="row">
+        <button onClick={copy}>{copied ? 'Copied' : 'Copy prompt'}</button>
+        <button onClick={() => setRevealed((v) => !v)}>
+          {revealed ? 'Hide' : 'Show'}
+        </button>
+      </div>
+
+      {revealed && (
+        <textarea className="prompt" readOnly value={job.prompt} rows={10} />
+      )}
 
       <label className="stacked">
         Sheet image

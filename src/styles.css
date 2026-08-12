@@ -138,6 +138,20 @@ input[type='file'] {
   margin-top: 0.25rem;
 }
 
+textarea.prompt {
+  width: 100%;
+  margin-top: 0.5rem;
+  background: #0d1017;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+
 .diagnostics {
   width: 100%;
   margin-top: 0.5rem;
@@ -156,8 +170,27 @@ input[type='file'] {
 }
 
 .stage-wrap {
+  flex: 1;
+  /* Without this a flex child refuses to shrink below its content, and the
+     oversized canvas pushes the whole page into a horizontal scroll instead of
+     scrolling inside its own container. */
+  min-width: 0;
   padding: 1.5rem;
   overflow: auto;
+}
+
+@media (max-width: 760px) {
+  .app {
+    flex-direction: column;
+  }
+
+  .toolbar {
+    width: 100%;
+    min-height: 0;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
 }
 
 .stage-wrap canvas {
