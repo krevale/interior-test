@@ -208,16 +208,12 @@ textarea.prompt {
      oversized canvas pushes the whole page into a horizontal scroll instead of
      scrolling inside its own container. */
   min-width: 0;
-  padding: 1.5rem;
-  overflow: auto;
+  position: relative;
 }
 
 @media (max-width: 760px) {
   .app {
     flex-direction: column;
-  }
-
-  .app {
     height: auto;
   }
 
@@ -231,9 +227,65 @@ textarea.prompt {
 
   .stage-wrap {
     height: auto;
+    /* canvas-viewport fills its parent's height, so on mobile - where the
+       parent no longer has an explicit height - it needs one of its own to
+       fill instead. */
+    min-height: 50vh;
   }
 }
 
-.stage-wrap canvas {
-  border-radius: 10px;
+/*
+  The pan/zoom viewport. It deliberately fills its container edge to edge
+  rather than scrolling within a padded frame: panning and zooming replace
+  scrolling as the way to navigate a background bigger than the window, so the
+  full container is the navigable surface.
+*/
+.canvas-viewport {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.canvas-viewport.pannable {
+  cursor: grab;
+}
+
+.canvas-viewport.panning,
+.canvas-viewport.pannable:active {
+  cursor: grabbing;
+}
+
+.zoom-controls {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  display: flex;
+  align-items: stretch;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.zoom-controls button {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.zoom-controls button:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.zoom-controls button:hover:not(:disabled) {
+  background: #232836;
+  border-color: var(--border);
+}
+
+.zoom-controls .zoom-readout {
+  min-width: 3.6rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }

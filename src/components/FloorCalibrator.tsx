@@ -7,6 +7,8 @@ const CORNERS: CornerKey[] = ['tl', 'tr', 'br', 'bl'];
 
 interface Props {
   quad: FloorQuad;
+  /** False while the canvas itself is being panned, so a drag pans instead of moving a handle. */
+  draggable: boolean;
   onPreview: (quad: FloorQuad) => void;
   onCommit: (quad: FloorQuad) => void;
 }
@@ -19,7 +21,7 @@ interface Props {
  * takes a couple of seconds and gives an exact homography, which everything
  * downstream - snapping, depth scaling, shadow shape - depends on.
  */
-export function FloorCalibrator({ quad, onPreview, onCommit }: Props) {
+export function FloorCalibrator({ quad, draggable, onPreview, onCommit }: Props) {
   const points = CORNERS.flatMap((key) => [quad[key].x, quad[key].y]);
 
   const move =
@@ -40,7 +42,7 @@ export function FloorCalibrator({ quad, onPreview, onCommit }: Props) {
           fill="#0ea5e9"
           stroke="#f8fafc"
           strokeWidth={2}
-          draggable
+          draggable={draggable}
           onDragMove={move(key, onPreview)}
           onDragEnd={move(key, onCommit)}
         />

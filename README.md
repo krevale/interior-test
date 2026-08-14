@@ -12,7 +12,7 @@ works, and drop the resulting sheet back in.
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 66 unit tests over the pure geometry, prompt and history logic
+npm test           # 78 unit tests over the pure geometry, prompt and history logic
 npm run typecheck
 ```
 
@@ -27,6 +27,8 @@ npm run typecheck
 - Undo/redo (`Ctrl`/`Cmd`+`Z`, `+Shift` to redo)
 - `[` / `]` nudge an object's manual depth-sort tiebreak
 - Snapping to round steps in metres or feet, and an optional floor grid
+- Hold `Space` to pan (hand cursor); scroll/pinch to zoom smoothly toward the
+  pointer; zoom controls and fit-to-screen in the bottom-right corner
 - Sprite sheet prompt generation, chroma keying, slicing, and per-cell
   diagnostics — see below
 
@@ -64,6 +66,20 @@ accumulating anything reusable.
 an isometric sprite — the silhouette is a diagonal solid, so its box is mostly
 empty air. The sprite gets a soft halo instead, drawn as a canvas shadow so it
 respects the image's alpha and traces the real outline at any facing for free.
+
+**Pan and zoom live on the Stage transform, not the DOM.** The canvas is a
+fixed-size viewport (it fills its container and never scrolls); `Space`-drag and
+the scroll wheel change the Konva Stage's own x/y/scale instead. Konva reports
+node drag positions in each node's local, untransformed coordinate space
+regardless of the Stage's transform, so none of the floor-homography, snapping,
+or object-drag code needed to change — see `src/lib/viewport.ts` for the pure
+pan/zoom math (kept separate from the Konva wiring so it's testable without a
+DOM) and `RoomCanvas.tsx` for how it's applied. Wheel zoom re-anchors on the
+pointer using an exponential response to `deltaY`, so a trackpad's many small
+deltas and a mouse wheel's fewer, larger ones both feel proportional. Object and
+calibration-handle dragging are suspended while `Space` is held, so a pan
+gesture can start anywhere - including on top of a piece of furniture - without
+moving it.
 
 **The floor grid is a calibration check, not just a placement aid.** Grid lines
 are projected through the homography at one display unit apart, so if they don't

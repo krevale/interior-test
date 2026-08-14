@@ -12,6 +12,8 @@ interface Props {
   footprint: { radiusX: number; radiusY: number };
   selected: boolean;
   showAnchors: boolean;
+  /** False while the canvas itself is being panned, so a drag pans instead of moving the object. */
+  draggable: boolean;
   onSelect: (id: string) => void;
   /** Both return the corrected ground point after clamping and snapping. */
   onDragMove: (id: string, groundX: number, groundY: number) => Vec2;
@@ -26,6 +28,7 @@ export function ObjectSprite({
   footprint,
   selected,
   showAnchors,
+  draggable,
   onSelect,
   onDragMove,
   onDragEnd,
@@ -92,7 +95,7 @@ export function ObjectSprite({
           shadowBlur={selected ? 18 : 0}
           shadowOpacity={selected ? 0.9 : 0}
           shadowForStrokeEnabled={false}
-          draggable
+          draggable={draggable}
           onMouseDown={() => onSelect(layout.object.id)}
           onTouchStart={() => onSelect(layout.object.id)}
           onDragMove={handleDrag(onDragMove)}
