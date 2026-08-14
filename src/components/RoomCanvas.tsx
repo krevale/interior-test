@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Image as KonvaImage, Layer, Stage } from 'react-konva';
 import type { FloorQuad } from '../types/scene';
+import type { Unit } from '../lib/units';
 import type { FloorTransform } from '../lib/homography';
 import { clampToFloor, floorToScreen, screenToFloor, snapToGrid } from '../lib/homography';
 import { layoutScene } from '../lib/layout';
@@ -9,9 +10,11 @@ import { moveObject, setFloorQuad, type SceneStore } from '../lib/sceneStore';
 import { useImage } from '../lib/useImage';
 import { ObjectSprite } from './ObjectSprite';
 import { FloorCalibrator } from './FloorCalibrator';
+import { FloorGrid } from './FloorGrid';
 
 export interface CanvasSettings {
   snapMeters: number;
+  showGrid: boolean;
   showShadows: boolean;
   showAnchors: boolean;
   calibrating: boolean;
@@ -21,11 +24,19 @@ interface Props {
   store: SceneStore;
   transform: FloorTransform;
   settings: CanvasSettings;
+  unit: Unit;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
 }
 
-export function RoomCanvas({ store, transform, settings, selectedId, onSelect }: Props) {
+export function RoomCanvas({
+  store,
+  transform,
+  settings,
+  unit,
+  selectedId,
+  onSelect,
+}: Props) {
   const { scene } = store;
   const background = useImage(scene.room.backgroundImageUrl);
 
@@ -66,6 +77,7 @@ export function RoomCanvas({ store, transform, settings, selectedId, onSelect }:
     >
       <Layer listening={false}>
         {background && <KonvaImage image={background} />}
+        {settings.showGrid && <FloorGrid transform={transform} unit={unit} />}
       </Layer>
 
       <Layer>

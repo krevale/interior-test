@@ -12,7 +12,7 @@ works, and drop the resulting sheet back in.
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 62 unit tests over the pure geometry, prompt and history logic
+npm test           # 66 unit tests over the pure geometry, prompt and history logic
 npm run typecheck
 ```
 
@@ -26,7 +26,7 @@ npm run typecheck
 - Four-handle floor calibration
 - Undo/redo (`Ctrl`/`Cmd`+`Z`, `+Shift` to redo)
 - `[` / `]` nudge an object's manual depth-sort tiebreak
-- Metric snapping, in metres or feet
+- Snapping to round steps in metres or feet, and an optional floor grid
 - Sprite sheet prompt generation, chroma keying, slicing, and per-cell
   diagnostics — see below
 
@@ -62,9 +62,13 @@ accumulating anything reusable.
 
 **Selection is shown by silhouette, not by a box.** A bounding box can never fit
 an isometric sprite — the silhouette is a diagonal solid, so its box is mostly
-empty air. Instead the sprite gets a soft halo, drawn as a canvas shadow so it
-respects the image's alpha and traces the real outline at any facing for free,
-plus a ring on the floor at the object's true footprint.
+empty air. The sprite gets a soft halo instead, drawn as a canvas shadow so it
+respects the image's alpha and traces the real outline at any facing for free.
+
+**The floor grid is a calibration check, not just a placement aid.** Grid lines
+are projected through the homography at one display unit apart, so if they don't
+lie along the floorboards the corner handles are in the wrong place — and
+everything derived from them is off by the same amount.
 
 **Depth sorting keys off the ground-contact point**, per-facing, not the
 bounding-box centre. A bookshelf's box overlaps a sofa standing in front of it;
@@ -130,6 +134,15 @@ positively ("an empty room with bare floors" lands where "no furniture" does
 not), and on an edit the invariants are stated *before* the change. What stays
 rigid is the machine-readable half — grid layout, chroma colour, camera angles —
 because the slicer measures against exactly those numbers.
+
+**One metric scale per sheet, not one per cell.** A sheet is one rigid object
+photographed from a fixed camera, so there is exactly one pixels-per-metre for
+it. Deriving scale per cell from silhouette width let each facing disagree — a
+bed is far wider broadside than end-on, and that honest change in silhouette was
+read as a change in size, so the object visibly grew and shrank as it rotated.
+Each cell now estimates scale from both axes, and the sheet takes the median, so
+one badly drawn cell cannot drag the rest off scale. Anchors still use each
+cell's own proportions, since they locate a point inside that particular bitmap.
 
 **Anchors are computed geometrically, not guessed from pixels.** We know the
 asset's real dimensions and the camera the sheet was generated against, so the

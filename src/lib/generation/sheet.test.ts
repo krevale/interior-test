@@ -177,6 +177,41 @@ describe('sliceSheet', () => {
     expect(result.diagnostics[4].withinTolerance).toBe(false);
   });
 
+  it('gives every facing the same metric scale', () => {
+    // The reported bug: a bed changed size when rotated. Scale was derived per
+    // cell from silhouette WIDTH, and a bed is far wider broadside than end-on,
+    // so the honest change in silhouette was read as a change in size.
+    const { image } = makeSheet(1.5);
+    const result = sliceSheet(image, options, stubEncode);
+
+    const perMeter = FACINGS.map((f) => result.sprites.cells[f]!.renderedPxPerMeter);
+    for (const value of perMeter) {
+      expect(value).toBeCloseTo(perMeter[0], 6);
+    }
+  });
+
+  it('keeps the sheet scale when one cell is drawn badly', () => {
+    // A median over per-cell estimates means a single distorted cell is
+    // reported in diagnostics without dragging the other facings off scale.
+    const clean = sliceSheet(makeSheet(1.5).image, options, stubEncode);
+    const withBadCell = sliceSheet(
+      makeSheet(1.5, { index: 2, heightFactor: 1.6 }).image,
+      options,
+      stubEncode,
+    );
+
+    // The bad cell is 60% too tall. Taken on its own it would drag the scale
+    // by roughly a quarter; through the median it moves it by a fraction of a
+    // percent, which pixel rounding alone would account for.
+    const drift =
+      Math.abs(
+        withBadCell.sprites.cells[0]!.renderedPxPerMeter -
+          clean.sprites.cells[0]!.renderedPxPerMeter,
+      ) / clean.sprites.cells[0]!.renderedPxPerMeter;
+    expect(drift).toBeLessThan(0.01);
+    expect(withBadCell.diagnostics.filter((d) => !d.withinTolerance)).toHaveLength(1);
+  });
+
   it('carries the symmetry flag through to the sprite set', () => {
     const { image } = makeSheet(1);
     const result = sliceSheet(image, { ...options, symmetric: false }, stubEncode);

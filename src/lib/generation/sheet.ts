@@ -108,36 +108,68 @@ export function sliceSheet(
     pxPerMeter: REFERENCE_PX_PER_METER,
   };
 
-  const sprites: Partial<Record<Facing, SpriteCell>> = {};
-  const diagnostics: SliceDiagnostics[] = [];
-  const scales: number[] = [];
-
-  facings.forEach((facing, index) => {
+  // Pass one: measure every cell against what the camera contract predicts.
+  const cellData = facings.map((facing, index) => {
     const measured = silhouetteBounds(keyed, cells[index]);
-
-    // What this facing should look like if the camera contract was honoured.
     const projected = projectBoxVertices(box, facing, referenceCamera);
-    const ground = projectGroundPoint(facing, referenceCamera);
     const expected = boundsOf(projected);
     const expectedWidth = expected.maxX - expected.minX;
     const expectedHeight = expected.maxY - expected.minY;
+    const usable = !!measured && expectedWidth > 0 && expectedHeight > 0;
 
-    if (!measured || expectedWidth <= 0 || expectedHeight <= 0) {
+    // Estimate scale from BOTH axes. Width alone is not enough: a bed is much
+    // wider seen broadside than end-on, so a width-only estimate reads that
+    // honest change in silhouette as a change in size.
+    const byWidth = usable ? measured!.width / expectedWidth : 0;
+    const byHeight = usable ? measured!.height / expectedHeight : 0;
+    const cellScale = usable ? Math.sqrt(byWidth * byHeight) : 0;
+
+    const expectedAspect = expectedHeight / expectedWidth;
+    const actualAspect = usable ? measured!.height / measured!.width : 0;
+    const aspectError = usable
+      ? Math.abs(actualAspect - expectedAspect) / expectedAspect
+      : Infinity;
+
+    return {
+      facing,
+      measured,
+      ground: projectGroundPoint(facing, referenceCamera),
+      expected,
+      expectedWidth,
+      expectedHeight,
+      byWidth,
+      byHeight,
+      cellScale,
+      aspectError,
+      usable,
+    };
+  });
+
+  // One scale for the whole sheet, not one per cell.
+  //
+  // This is the same rigid object photographed from a fixed camera, so there is
+  // exactly one pixels-per-metre for the sheet. Deriving it per cell let each
+  // facing disagree, and the object visibly changed size as it rotated. A
+  // median over the per-cell estimates also means one badly drawn cell cannot
+  // drag the others off scale.
+  const sheetScale = median(cellData.filter((c) => c.usable).map((c) => c.cellScale));
+
+  const sprites: Partial<Record<Facing, SpriteCell>> = {};
+  const diagnostics: SliceDiagnostics[] = [];
+
+  for (const cell of cellData) {
+    if (!cell.usable || !cell.measured || sheetScale <= 0) {
       diagnostics.push({
-        facing,
-        measured,
+        facing: cell.facing,
+        measured: cell.measured,
         scale: 0,
-        aspectError: Infinity,
+        aspectError: cell.aspectError,
         withinTolerance: false,
       });
-      return;
+      continue;
     }
 
-    const scale = measured.width / expectedWidth;
-    const expectedAspect = expectedHeight / expectedWidth;
-    const actualAspect = measured.height / measured.width;
-    const aspectError = Math.abs(actualAspect - expectedAspect) / expectedAspect;
-
+    const { measured, expected, ground } = cell;
     const cutout = cropImage(keyed, {
       x: measured.x - padding,
       y: measured.y - padding,
@@ -145,32 +177,44 @@ export function sliceSheet(
       height: measured.height + padding * 2,
     });
 
-    sprites[facing] = {
+    sprites[cell.facing] = {
       url: encode(cutout),
       width: cutout.width,
       height: cutout.height,
+      // The anchor locates a point inside THIS bitmap, so it uses this cell's
+      // own per-axis ratios. Physical size uses the sheet scale. Splitting the
+      // two keeps a slightly off cell correctly anchored without letting it
+      // change how big the object is in the room.
       anchor: {
-        x: (ground.x - expected.minX) * scale + padding,
-        y: (ground.y - expected.minY) * scale + padding,
+        x: (ground.x - expected.minX) * cell.byWidth + padding,
+        y: (ground.y - expected.minY) * cell.byHeight + padding,
       },
-      renderedPxPerMeter: REFERENCE_PX_PER_METER * scale,
+      renderedPxPerMeter: REFERENCE_PX_PER_METER * sheetScale,
     };
 
-    scales.push(scale);
     diagnostics.push({
-      facing,
+      facing: cell.facing,
       measured,
-      scale,
-      aspectError,
-      withinTolerance: aspectError <= ASPECT_TOLERANCE,
+      scale: cell.cellScale,
+      aspectError: cell.aspectError,
+      withinTolerance: cell.aspectError <= ASPECT_TOLERANCE,
     });
-  });
+  }
+
+  const scales = cellData.filter((c) => c.usable).map((c) => c.cellScale);
 
   return {
     sprites: { cells: sprites, symmetric },
     diagnostics,
     scaleSpread: spread(scales),
   };
+}
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
 function spread(values: number[]): number {

@@ -73,32 +73,6 @@ export function ObjectSprite({
         />
       )}
 
-      {/*
-        Selection is shown two ways, neither of them a bounding box. A box can
-        never fit an isometric sprite: the silhouette is a diagonal solid, so its
-        box is mostly empty air and reads as loose and wrong.
-
-        On the floor, a ring at the object's true footprint, computed from its
-        real dimensions through the homography — so it states exactly what
-        ground the object occupies.
-      */}
-      {selected && (
-        <Circle
-          x={layout.ground.x}
-          y={layout.ground.y}
-          radius={footprint.radiusX}
-          scaleY={footprint.radiusY / footprint.radiusX}
-          listening={false}
-          stroke={SELECT_TINT}
-          strokeWidth={1.5}
-          // The ellipse is a circle squashed by scaleY, which would squash the
-          // stroke with it and leave the ring thinner top and bottom.
-          strokeScaleEnabled={false}
-          opacity={0.75}
-          dash={[7, 5]}
-        />
-      )}
-
       {cell && image && (
         <KonvaImage
           image={image}

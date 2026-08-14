@@ -109,7 +109,7 @@ export function buildSheetPrompt(options: SheetPromptOptions): SheetPrompt {
 
 Lock the object itself and keep it identical in every view: the same proportions, the same materials and surface texture, the same colour, the same leg and frame construction, the same stitching and detailing. This is one physical object, ${dimensions(asset, unit)}, placed on a turntable and photographed ${count} times as it rotates. It is not ${count} variations on a design, and nothing about it may be redesigned or simplified between views.
 
-${cameraSentence(style)} The camera never moves between views and never changes distance — only the object rotates on its vertical axis, so it occupies the same proportion of the frame every time.
+${cameraSentence(style)} The camera never moves and never changes distance, so the object is drawn at exactly the same scale in every view — one view could be laid over another and the object would be the same size. Only the object rotates on its vertical axis. It will look wider in some views and narrower in others, and that difference must come purely from the rotation: never resize, re-frame, zoom or re-centre it to make it fill a cell more evenly.
 
 Render it in this visual style: ${style.promptFragment}.
 

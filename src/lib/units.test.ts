@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { formatLength, stepFor, toDisplay, toMeters, unitLabel } from './units';
+import {
+  formatLength,
+  nearestSnapPreset,
+  snapPresets,
+  stepFor,
+  toDisplay,
+  toMeters,
+  unitLabel,
+} from './units';
 
 describe('units', () => {
   it('round-trips through both units without drift', () => {
@@ -27,5 +35,21 @@ describe('units', () => {
   it('uses a coarser step for feet', () => {
     expect(stepFor('ft')).toBeGreaterThan(stepFor('m'));
     expect(unitLabel('ft')).toBe('ft');
+  });
+
+  it('offers round snap steps in whichever unit is on screen', () => {
+    expect(snapPresets('m').map((p) => p.label)).toContain('25 cm');
+    expect(snapPresets('ft').map((p) => p.label)).toContain('1 ft');
+    // Stored values stay metric even when the label is imperial.
+    const oneFoot = snapPresets('ft').find((p) => p.label === '1 ft')!.meters;
+    expect(oneFoot).toBeCloseTo(0.3048, 4);
+  });
+
+  it('maps a stored value onto the nearest preset when units change', () => {
+    // 0.25 m has no round imperial equivalent, so it lands on the closest one
+    // (1 ft) rather than stranding the select with no matching option.
+    expect(nearestSnapPreset(0.25, 'm')).toBe(0.25);
+    expect(nearestSnapPreset(0.25, 'ft')).toBeCloseTo(toMeters(1, 'ft'), 4);
+    expect(nearestSnapPreset(0, 'ft')).toBe(0);
   });
 });

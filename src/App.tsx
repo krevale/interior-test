@@ -28,6 +28,7 @@ export default function App() {
   const [unit, setUnit] = useState<Unit>('m');
   const [settings, setSettings] = useState<CanvasSettings>({
     snapMeters: 0.25,
+    showGrid: false,
     showShadows: true,
     showAnchors: false,
     calibrating: false,
@@ -165,7 +166,10 @@ export default function App() {
         onCreateAsset={(asset: FurnitureAsset) =>
           store.commit((scene) => addAsset(scene, asset))
         }
-        onBackground={(background) =>
+        onBackground={(background) => {
+          // A fresh background needs its floor re-marked, and the grid is how
+          // you can tell whether the marks landed in the right place.
+          setSettings((s) => ({ ...s, calibrating: true, showGrid: true }));
           store.commit((scene) =>
             setRoomBackground(
               scene,
@@ -177,8 +181,8 @@ export default function App() {
                 scene.room.floor.depthMeters,
               ),
             ),
-          )
-        }
+          );
+        }}
         onDimensions={(w, d) => store.commit((scene) => setFloorDimensions(scene, w, d))}
         settings={settings}
         onSettings={(patch) => setSettings((s) => ({ ...s, ...patch }))}
@@ -197,6 +201,7 @@ export default function App() {
           store={store}
           transform={transform}
           settings={settings}
+          unit={unit}
           selectedId={selectedId}
           onSelect={setSelectedId}
         />

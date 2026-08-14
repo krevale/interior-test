@@ -8,7 +8,7 @@ import type {
 import type { CanvasSettings } from './RoomCanvas';
 import { AssetPanel } from './AssetPanel';
 import { RoomPanel } from './RoomPanel';
-import { formatLength, type Unit } from '../lib/units';
+import { nearestSnapPreset, snapPresets, type Unit } from '../lib/units';
 
 interface Props {
   assets: FurnitureAsset[];
@@ -141,6 +141,14 @@ export function Toolbar({
         <label className="check">
           <input
             type="checkbox"
+            checked={settings.showGrid}
+            onChange={(e) => onSettings({ showGrid: e.target.checked })}
+          />
+          Floor grid
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
             checked={settings.showShadows}
             onChange={(e) => onSettings({ showShadows: e.target.checked })}
           />
@@ -155,16 +163,17 @@ export function Toolbar({
           Show ground anchors
         </label>
         <label className="stacked">
-          Snap:{' '}
-          {settings.snapMeters === 0 ? 'off' : formatLength(settings.snapMeters, unit)}
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={settings.snapMeters}
+          Snap
+          <select
+            value={nearestSnapPreset(settings.snapMeters, unit)}
             onChange={(e) => onSettings({ snapMeters: Number(e.target.value) })}
-          />
+          >
+            {snapPresets(unit).map((preset) => (
+              <option key={preset.label} value={preset.meters}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
         </label>
       </section>
 
