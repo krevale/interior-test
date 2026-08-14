@@ -12,7 +12,7 @@ works, and drop the resulting sheet back in.
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 26 unit tests over the pure geometry/history logic
+npm test           # 62 unit tests over the pure geometry, prompt and history logic
 npm run typecheck
 ```
 
@@ -26,6 +26,7 @@ npm run typecheck
 - Four-handle floor calibration
 - Undo/redo (`Ctrl`/`Cmd`+`Z`, `+Shift` to redo)
 - `[` / `]` nudge an object's manual depth-sort tiebreak
+- Metric snapping, in metres or feet
 - Sprite sheet prompt generation, chroma keying, slicing, and per-cell
   diagnostics — see below
 
@@ -59,6 +60,12 @@ per `(asset, style)` in `FurnitureAsset.spritesByStyle`. Binding them to a room
 instead would mean regenerating the whole library for every new room and never
 accumulating anything reusable.
 
+**Selection is shown by silhouette, not by a box.** A bounding box can never fit
+an isometric sprite — the silhouette is a diagonal solid, so its box is mostly
+empty air. Instead the sprite gets a soft halo, drawn as a canvas shadow so it
+respects the image's alpha and traces the real outline at any facing for free,
+plus a ring on the floor at the object's true footprint.
+
 **Depth sorting keys off the ground-contact point**, per-facing, not the
 bounding-box centre. A bookshelf's box overlaps a sofa standing in front of it;
 sorting by centre gets that backwards. `zOffset` exists for the residual cases.
@@ -67,20 +74,42 @@ sorting by centre gets that backwards. `zOffset` exists for the residual cases.
 projection it invented for a generated room, and inferring one is guesswork.
 Four dragged corners give an exact homography in a couple of seconds.
 
+## Two upload paths
+
+Rooms and furniture are uploaded in separate panels, because they are different
+kinds of asset:
+
+**Room background** is a single rendering. The camera is fixed and walls never
+turn, so there is exactly one image per room. Uploading one resets the floor
+plane — an image model won't report the projection it invented — so the
+calibration handles open automatically. The width and depth fields sit with
+those handles rather than at upload time: together with the dragged quad they
+set pixels-per-metre, which drives object sizing, depth scaling, snap spacing
+and shadow size, and the right number is something you judge while looking at
+the room.
+
+**Furniture assets** rotate, so each one needs either a rotation sheet or a
+single view:
+
+| Views | What you supply | Facings covered |
+| --- | --- | --- |
+| Rotation sheet, diagonal | one sheet, 2 cells | 4 |
+| Rotation sheet, canonical | one sheet, 5 cells | 8 |
+| Rotation sheet, all | one sheet, 8 cells | 8 (asymmetric pieces) |
+| Single view | one image | 1 |
+
+Single view is the cheap path when you already have a usable product shot from
+roughly the right angle. It runs the same ingest code on a one-cell grid, so it
+still gets a measured silhouette, a geometric anchor and a camera check.
+
+Dimensions display in metres or feet via the toggle at the top; the data model
+stays metric throughout and converts only where a number meets a human.
+
 ## Generating sprites (manual loop)
 
-In the **Generate sprites** panel: pick an asset and a coverage level, copy the
-prompt, run it in whatever image tool you already pay for, then drop the
-returned sheet back into the file input. It slices, keys, and applies straight
-onto the canvas.
-
-Coverage levels exist because mirroring does half the work:
-
-| Setting | Sprites generated | Facings covered |
-| --- | --- | --- |
-| diagonal | 2 | 4 |
-| canonical | 5 | 8 |
-| all | 8 | 8 (asymmetric pieces only) |
+Pick an asset and a coverage level, copy the prompt, run it in whatever image
+tool you already pay for, then drop the returned sheet back into the file
+input. It slices, keys, and applies straight onto the canvas.
 
 **All facings come back in one image, not one call each.** Consistency is then
 enforced within a single generation rather than hoped for across several, it
@@ -93,6 +122,14 @@ match. Keying is done on green dominance (`g - max(r, b)`) rather than distance
 to a fixed RGB value, which survives the uneven backdrop shading models tend to
 produce, with a soft alpha ramp so edges don't turn jagged and a despill pass so
 they don't keep a green halo once composited.
+
+**The prompts are written for Nano Banana specifically.** Gemini's image models
+read a prompt as language, not as a tag list, so these are narrative
+art-director briefs rather than bulleted specifications: constraints are phrased
+positively ("an empty room with bare floors" lands where "no furniture" does
+not), and on an edit the invariants are stated *before* the change. What stays
+rigid is the machine-readable half — grid layout, chroma colour, camera angles —
+because the slicer measures against exactly those numbers.
 
 **Anchors are computed geometrically, not guessed from pixels.** We know the
 asset's real dimensions and the camera the sheet was generated against, so the
@@ -120,6 +157,7 @@ identity and camera before building anything else on top of them.
 src/types/scene.ts           data model
 src/lib/facing.ts            facing -> (sprite, mirrored) resolution
 src/lib/homography.ts        floor plane: DLT solve, projection, px-per-metre, snapping
+src/lib/units.ts             metre/foot display conversion
 src/lib/isoCamera.ts         axonometric projection shared by renderer and slicer
 src/lib/layout.ts            per-object screen placement + depth sort
 src/lib/shadow.ts            procedural contact shadows
@@ -131,7 +169,7 @@ src/lib/generation/
   sheet.ts                   slicing, geometric anchors, camera diagnostics
   raster.ts                  browser encode/decode
   provider.ts                provider interface + manual implementation
-src/components/              Konva canvas, calibrator, toolbar, generate panel
+src/components/              Konva canvas, calibrator, toolbar, room + asset panels
 ```
 
 ## Placeholder assets
@@ -144,15 +182,12 @@ goes away once sprites come from the generation pipeline.
 
 ## Not built yet
 
-1. **Room ingestion.** `buildRoomPrompt` exists and de-furnishes as well as
-   restyles, but there's no upload flow — rooms are still the placeholder. The
-   de-furnishing matters: anything left in the background is baked in and
-   permanently un-draggable, which contradicts the whole premise.
-2. **Scene persistence.** State is in memory and dies with a refresh.
-3. **Chat-to-edit.** Natural language → tool calls mutating
+1. **Scene persistence.** State is in memory and dies with a refresh — an
+   uploaded room and its sprites do not survive a reload.
+2. **Chat-to-edit.** Natural language → tool calls mutating
    `fx`/`fz`/`facing`/`scale`. Spatial edits must never trigger regeneration;
    only appearance changes do.
-4. **An API-backed provider.** `GenerationProvider` is the seam; the manual
+3. **An API-backed provider.** `GenerationProvider` is the seam; the manual
    implementation is the only one so far. Adding an API one is a config change
    rather than a rewrite.
 

@@ -1,5 +1,11 @@
 import type { Facing, FurnitureAsset, SpriteSet, Style } from '../../types/scene';
-import { buildSheetPrompt, defaultSheetLayout, type SheetLayout } from './prompt';
+import {
+  buildSheetPrompt,
+  buildSingleViewPrompt,
+  defaultSheetLayout,
+  type SheetLayout,
+} from './prompt';
+import type { Unit } from '../units';
 import { decodeImageFile, encodeRaster } from './raster';
 import { sliceSheet, type SliceResult } from './sheet';
 
@@ -39,10 +45,32 @@ export function prepareSpriteJob(
   asset: FurnitureAsset,
   style: Style,
   facings: Facing[],
+  unit: Unit = 'm',
 ): SpriteJob {
   const layout = defaultSheetLayout(facings.length);
-  const { text } = buildSheetPrompt({ asset, style, facings, layout });
+  const { text } = buildSheetPrompt({ asset, style, facings, layout, unit });
   return { asset, style, facings, layout, prompt: text };
+}
+
+/**
+ * A single angle rather than a rotation sheet. Ingest is the same code path
+ * with a one-cell grid, so an uploaded single view still gets a measured
+ * silhouette, a geometric anchor and a camera-conformance check.
+ */
+export function prepareSingleViewJob(
+  asset: FurnitureAsset,
+  style: Style,
+  facing: Facing,
+  unit: Unit = 'm',
+): SpriteJob {
+  const { text } = buildSingleViewPrompt({ asset, style, facing, unit });
+  return {
+    asset,
+    style,
+    facings: [facing],
+    layout: { cols: 1, rows: 1 },
+    prompt: text,
+  };
 }
 
 export interface IngestResult extends SliceResult {

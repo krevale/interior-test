@@ -24,6 +24,29 @@ export interface ShadowSpec {
  * homography rather than by fudging a squash factor, so it sits in the floor
  * plane by construction and stays correct as the perspective changes.
  */
+/**
+ * The object's real footprint, projected onto the floor. Derived by projecting
+ * floor-space offsets through the homography rather than by squashing a circle,
+ * so it lies in the floor plane by construction.
+ */
+export function footprintRadii(
+  layout: ObjectLayout,
+  transform: FloorTransform,
+): { radiusX: number; radiusY: number } {
+  const { fx, fz } = layout.object;
+  const { widthMeters, depthMeters } = layout.asset;
+  const spread = layout.object.scaleMultiplier;
+
+  const origin = floorToScreen(transform, fx, fz);
+  const alongX = floorToScreen(transform, fx + (widthMeters / 2) * spread, fz);
+  const alongZ = floorToScreen(transform, fx, fz + (depthMeters / 2) * spread);
+
+  return {
+    radiusX: Math.hypot(alongX.x - origin.x, alongX.y - origin.y),
+    radiusY: Math.hypot(alongZ.x - origin.x, alongZ.y - origin.y),
+  };
+}
+
 export function shadowFor(
   layout: ObjectLayout,
   transform: FloorTransform,
@@ -32,8 +55,7 @@ export function shadowFor(
   if (!layout.sprite) return null;
 
   const { fx, fz } = layout.object;
-  const { widthMeters, depthMeters, heightMeters } = layout.asset;
-  const spread = layout.object.scaleMultiplier;
+  const { heightMeters } = layout.asset;
 
   const azimuth = (style.lightDirection.azimuthDeg * Math.PI) / 180;
   const elevation = (style.lightDirection.elevationDeg * Math.PI) / 180;
@@ -48,12 +70,9 @@ export function shadowFor(
   const offsetZ = Math.cos(azimuth) * offsetMeters;
 
   const center = floorToScreen(transform, fx + offsetX, fz + offsetZ);
-  const alongX = floorToScreen(transform, fx + (widthMeters / 2) * spread, fz);
-  const alongZ = floorToScreen(transform, fx, fz + (depthMeters / 2) * spread);
-  const origin = floorToScreen(transform, fx, fz);
-
-  const radiusX = Math.hypot(alongX.x - origin.x, alongX.y - origin.y) * 1.05;
-  const radiusY = Math.hypot(alongZ.x - origin.x, alongZ.y - origin.y) * 1.05;
+  const footprint = footprintRadii(layout, transform);
+  const radiusX = footprint.radiusX * 1.05;
+  const radiusY = footprint.radiusY * 1.05;
 
   // Taller objects cast softer, fainter contact shadows.
   const softness = Math.min(heightMeters / 2, 1.5);

@@ -1,5 +1,11 @@
 import { useCallback, useMemo, useReducer } from 'react';
-import type { Facing, PlacedObject, Scene, SpriteSet } from '../types/scene';
+import type {
+  Facing,
+  FurnitureAsset,
+  PlacedObject,
+  Scene,
+  SpriteSet,
+} from '../types/scene';
 
 /**
  * Undo/redo is here from the start rather than bolted on later. Retrofitting
@@ -169,6 +175,74 @@ export function addObject(scene: Scene, object: PlacedObject): Scene {
 
 export function setFloorQuad(scene: Scene, quad: Scene['room']['floor']): Scene {
   return { ...scene, room: { ...scene.room, floor: quad } };
+}
+
+/**
+ * Replace the room background. The floor plane cannot survive a new image — an
+ * image model won't report the projection it invented — so the caller supplies
+ * a starting quad and the user calibrates it by hand.
+ */
+export function setRoomBackground(
+  scene: Scene,
+  background: { url: string; size: { width: number; height: number } },
+  floor: Scene['room']['floor'],
+): Scene {
+  return {
+    ...scene,
+    room: {
+      ...scene.room,
+      backgroundImageUrl: background.url,
+      backgroundSize: background.size,
+      floor,
+    },
+  };
+}
+
+/**
+ * A plausible starting floor for a freshly uploaded room: a trapezoid across
+ * the lower half of the image, roughly where an isometric floor tends to land.
+ * It is a starting point for the calibrator, not a guess to be trusted.
+ */
+export function defaultFloorQuad(
+  width: number,
+  height: number,
+  widthMeters: number,
+  depthMeters: number,
+): Scene['room']['floor'] {
+  return {
+    tl: { x: width * 0.3, y: height * 0.42 },
+    tr: { x: width * 0.7, y: height * 0.42 },
+    br: { x: width * 0.92, y: height * 0.8 },
+    bl: { x: width * 0.08, y: height * 0.8 },
+    widthMeters,
+    depthMeters,
+  };
+}
+
+/**
+ * Set the real-world size of the calibrated floor quad. This is the metric
+ * anchor for the whole scene: it fixes pixels-per-metre, so it drives object
+ * sizing, depth scaling, snapping and shadow size all at once. Editable during
+ * calibration, because the right number is usually something you measure or
+ * estimate while looking at the room rather than know up front.
+ */
+export function setFloorDimensions(
+  scene: Scene,
+  widthMeters: number,
+  depthMeters: number,
+): Scene {
+  const floor = scene.room.floor;
+  if (floor.widthMeters === widthMeters && floor.depthMeters === depthMeters) {
+    return scene;
+  }
+  return {
+    ...scene,
+    room: { ...scene.room, floor: { ...floor, widthMeters, depthMeters } },
+  };
+}
+
+export function addAsset(scene: Scene, asset: FurnitureAsset): Scene {
+  return { ...scene, assets: { ...scene.assets, [asset.id]: asset } };
 }
 
 /** Merge a freshly generated sprite set into an asset, for one style. */

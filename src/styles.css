@@ -21,8 +21,8 @@ body {
 
 .app {
   display: flex;
-  min-height: 100vh;
-  align-items: flex-start;
+  height: 100vh;
+  align-items: stretch;
 }
 
 .app.error {
@@ -31,14 +31,15 @@ body {
 }
 
 .toolbar {
-  width: 260px;
+  width: 280px;
   flex: none;
   padding: 1rem;
   background: var(--panel);
   border-right: 1px solid var(--border);
-  min-height: 100vh;
-  position: sticky;
-  top: 0;
+  /* The panel stack is taller than most viewports, so it scrolls on its own
+     rather than dragging the canvas up the page with it. */
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .toolbar h2 {
@@ -53,7 +54,15 @@ body {
   margin-bottom: 1.5rem;
 }
 
-.toolbar label {
+.toolbar h3 {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 1rem 0 0.5rem;
+}
+
+.toolbar label.check {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -63,12 +72,33 @@ body {
 
 .toolbar label.stacked {
   display: block;
-  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  margin-top: 0.7rem;
+  margin-bottom: 0.4rem;
 }
 
-.toolbar label.stacked input {
+.toolbar label.stacked input[type='range'] {
   width: 100%;
   margin-top: 0.35rem;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  gap: 0.4rem;
+}
+
+.fields label.stacked {
+  margin-top: 0.5rem;
+}
+
+.units button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.muted.small {
+  font-size: 0.72rem;
 }
 
 button {
@@ -127,7 +157,9 @@ kbd {
 }
 
 select,
-input[type='file'] {
+input[type='file'],
+input[type='text'],
+input[type='number'] {
   width: 100%;
   background: #232836;
   color: var(--text);
@@ -171,6 +203,7 @@ textarea.prompt {
 
 .stage-wrap {
   flex: 1;
+  height: 100vh;
   /* Without this a flex child refuses to shrink below its content, and the
      oversized canvas pushes the whole page into a horizontal scroll instead of
      scrolling inside its own container. */
@@ -184,12 +217,20 @@ textarea.prompt {
     flex-direction: column;
   }
 
+  .app {
+    height: auto;
+  }
+
   .toolbar {
     width: 100%;
-    min-height: 0;
-    position: static;
+    height: auto;
+    max-height: 50vh;
     border-right: none;
     border-bottom: 1px solid var(--border);
+  }
+
+  .stage-wrap {
+    height: auto;
   }
 }
 

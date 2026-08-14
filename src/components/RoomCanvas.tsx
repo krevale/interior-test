@@ -2,9 +2,9 @@ import { useMemo } from 'react';
 import { Image as KonvaImage, Layer, Stage } from 'react-konva';
 import type { FloorQuad } from '../types/scene';
 import type { FloorTransform } from '../lib/homography';
-import { clampToFloor, screenToFloor, snapToGrid } from '../lib/homography';
+import { clampToFloor, floorToScreen, screenToFloor, snapToGrid } from '../lib/homography';
 import { layoutScene } from '../lib/layout';
-import { shadowFor } from '../lib/shadow';
+import { footprintRadii, shadowFor } from '../lib/shadow';
 import { moveObject, setFloorQuad, type SceneStore } from '../lib/sceneStore';
 import { useImage } from '../lib/useImage';
 import { ObjectSprite } from './ObjectSprite';
@@ -44,11 +44,13 @@ export function RoomCanvas({ store, transform, settings, selectedId, onSelect }:
     const { x, y } = groundToFloor(groundX, groundY);
     // Preview only: a drag must not push a history entry per pointer move.
     store.preview((scene) => moveObject(scene, id, x, y));
+    return floorToScreen(transform, x, y);
   };
 
   const handleDragEnd = (id: string, groundX: number, groundY: number) => {
     const { x, y } = groundToFloor(groundX, groundY);
     store.commit((scene) => moveObject(scene, id, x, y));
+    return floorToScreen(transform, x, y);
   };
 
   const previewQuad = (quad: FloorQuad) => store.preview((s) => setFloorQuad(s, quad));
@@ -72,6 +74,7 @@ export function RoomCanvas({ store, transform, settings, selectedId, onSelect }:
             key={layout.object.id}
             layout={layout}
             shadow={settings.showShadows ? shadowFor(layout, transform, scene.style) : null}
+            footprint={footprintRadii(layout, transform)}
             selected={layout.object.id === selectedId}
             showAnchors={settings.showAnchors}
             onSelect={onSelect}

@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { buildDummyScene, DUMMY_CATALOG } from './data/dummyScene';
-import { buildFloorTransform } from './lib/homography';
+import { buildDummyScene } from './data/dummyScene';
+import { buildFloorTransform, floorToScreen } from './lib/homography';
 import { rotateFacing } from './lib/facing';
 import {
+  addAsset,
   addObject,
+  defaultFloorQuad,
   removeObject,
   setAssetSprites,
   setFacing,
+  setFloorDimensions,
+  setRoomBackground,
   updateObject,
   useSceneStore,
 } from './lib/sceneStore';
+import type { Unit } from './lib/units';
 import { RoomCanvas, type CanvasSettings } from './components/RoomCanvas';
 import { Toolbar } from './components/Toolbar';
-import type { PlacedObject } from './types/scene';
+import type { FurnitureAsset, PlacedObject } from './types/scene';
 
 export default function App() {
   // Placeholder assets are rendered once on mount; they need a DOM canvas, so
@@ -20,6 +25,7 @@ export default function App() {
   const [initialScene] = useState(buildDummyScene);
   const store = useSceneStore(initialScene);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [unit, setUnit] = useState<Unit>('m');
   const [settings, setSettings] = useState<CanvasSettings>({
     snapMeters: 0.25,
     showShadows: true,
@@ -84,6 +90,22 @@ export default function App() {
     [selectedId, store],
   );
 
+  // Dev-only test seam. Lets an automated check read scene state and locate an
+  // object on screen, so behaviour like snapping can be asserted numerically
+  // instead of guessed at from a screenshot. Stripped from production builds.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    (window as unknown as Record<string, unknown>).__rd = {
+      scene: store.scene,
+      ground: (id: string) => {
+        const object = store.scene.objects.find((o) => o.id === id);
+        return object && transform
+          ? floorToScreen(transform, object.fx, object.fz)
+          : null;
+      },
+    };
+  }, [store.scene, transform]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -131,12 +153,33 @@ export default function App() {
     <div className="app">
       <Toolbar
         assets={Object.values(store.scene.assets)}
+        room={store.scene.room}
         style={store.scene.style}
+        unit={unit}
+        onUnit={setUnit}
         onSprites={(assetId, sprites) =>
           store.commit((scene) =>
             setAssetSprites(scene, assetId, scene.style.id, sprites),
           )
         }
+        onCreateAsset={(asset: FurnitureAsset) =>
+          store.commit((scene) => addAsset(scene, asset))
+        }
+        onBackground={(background) =>
+          store.commit((scene) =>
+            setRoomBackground(
+              scene,
+              background,
+              defaultFloorQuad(
+                background.size.width,
+                background.size.height,
+                scene.room.floor.widthMeters,
+                scene.room.floor.depthMeters,
+              ),
+            ),
+          )
+        }
+        onDimensions={(w, d) => store.commit((scene) => setFloorDimensions(scene, w, d))}
         settings={settings}
         onSettings={(patch) => setSettings((s) => ({ ...s, ...patch }))}
         selected={selected}
@@ -148,7 +191,6 @@ export default function App() {
         onRotate={rotate}
         onDelete={remove}
         onAdd={add}
-        catalog={DUMMY_CATALOG.map(({ id, name }) => ({ id, name }))}
       />
       <main className="stage-wrap">
         <RoomCanvas

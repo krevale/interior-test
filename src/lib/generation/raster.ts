@@ -15,6 +15,29 @@ export async function decodeImageFile(file: Blob): Promise<RasterImage> {
   return { width, height, data };
 }
 
+/**
+ * Read a file as a data URL plus its natural size. Backgrounds don't need their
+ * pixels decoded, only their dimensions, and a data URL survives in scene state
+ * where an object URL would be revoked out from under it.
+ */
+export function readImageAsDataUrl(
+  file: Blob,
+): Promise<{ url: string; width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('could not read the image file'));
+    reader.onload = () => {
+      const url = String(reader.result);
+      const probe = new Image();
+      probe.onerror = () => reject(new Error('could not decode the image'));
+      probe.onload = () =>
+        resolve({ url, width: probe.naturalWidth, height: probe.naturalHeight });
+      probe.src = url;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function encodeRaster(image: RasterImage): string {
   const canvas = document.createElement('canvas');
   canvas.width = image.width;

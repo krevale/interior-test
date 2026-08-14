@@ -1,11 +1,28 @@
-import type { FurnitureAsset, PlacedObject, SpriteSet, Style } from '../types/scene';
+import type {
+  FurnitureAsset,
+  PlacedObject,
+  Room,
+  SpriteSet,
+  Style,
+} from '../types/scene';
 import type { CanvasSettings } from './RoomCanvas';
-import { GeneratePanel } from './GeneratePanel';
+import { AssetPanel } from './AssetPanel';
+import { RoomPanel } from './RoomPanel';
+import { formatLength, type Unit } from '../lib/units';
 
 interface Props {
   assets: FurnitureAsset[];
+  room: Room;
   style: Style;
+  unit: Unit;
+  onUnit: (unit: Unit) => void;
   onSprites: (assetId: string, sprites: SpriteSet) => void;
+  onCreateAsset: (asset: FurnitureAsset) => void;
+  onBackground: (background: {
+    url: string;
+    size: { width: number; height: number };
+  }) => void;
+  onDimensions: (widthMeters: number, depthMeters: number) => void;
   settings: CanvasSettings;
   onSettings: (patch: Partial<CanvasSettings>) => void;
   selected: PlacedObject | null;
@@ -17,13 +34,18 @@ interface Props {
   onRotate: (steps: number) => void;
   onDelete: () => void;
   onAdd: (assetId: string) => void;
-  catalog: { id: string; name: string }[];
 }
 
 export function Toolbar({
   assets,
+  room,
   style,
+  unit,
+  onUnit,
   onSprites,
+  onCreateAsset,
+  onBackground,
+  onDimensions,
   settings,
   onSettings,
   selected,
@@ -35,7 +57,6 @@ export function Toolbar({
   onRotate,
   onDelete,
   onAdd,
-  catalog,
 }: Props) {
   return (
     <aside className="toolbar">
@@ -49,6 +70,20 @@ export function Toolbar({
             Redo
           </button>
         </div>
+        <div className="row units">
+          <button
+            className={unit === 'm' ? 'active' : ''}
+            onClick={() => onUnit('m')}
+          >
+            Metres
+          </button>
+          <button
+            className={unit === 'ft' ? 'active' : ''}
+            onClick={() => onUnit('ft')}
+          >
+            Feet
+          </button>
+        </div>
       </section>
 
       <section>
@@ -56,7 +91,8 @@ export function Toolbar({
         {selected ? (
           <>
             <p className="muted">
-              {selectedName} &middot; facing {selected.facing} ({selected.facing * 45}&deg;)
+              {selectedName} &middot; facing {selected.facing} ({selected.facing * 45}
+              &deg;)
             </p>
             <div className="row">
               <button onClick={() => onRotate(-1)}>&#8630; Rotate</button>
@@ -72,9 +108,9 @@ export function Toolbar({
       </section>
 
       <section>
-        <h2>Add</h2>
+        <h2>Place</h2>
         <div className="stack">
-          {catalog.map((asset) => (
+          {assets.map((asset) => (
             <button key={asset.id} onClick={() => onAdd(asset.id)}>
               {asset.name}
             </button>
@@ -82,16 +118,27 @@ export function Toolbar({
         </div>
       </section>
 
-      <GeneratePanel
+      <RoomPanel
+        room={room}
+        style={style}
+        unit={unit}
+        calibrating={settings.calibrating}
+        onBackground={onBackground}
+        onDimensions={onDimensions}
+        onCalibrate={(on) => onSettings({ calibrating: on })}
+      />
+
+      <AssetPanel
         assets={assets}
         style={style}
-        selectedAssetId={selected?.assetId ?? null}
+        unit={unit}
         onSprites={onSprites}
+        onCreate={onCreateAsset}
       />
 
       <section>
         <h2>Canvas</h2>
-        <label>
+        <label className="check">
           <input
             type="checkbox"
             checked={settings.showShadows}
@@ -99,7 +146,7 @@ export function Toolbar({
           />
           Procedural shadows
         </label>
-        <label>
+        <label className="check">
           <input
             type="checkbox"
             checked={settings.showAnchors}
@@ -107,16 +154,9 @@ export function Toolbar({
           />
           Show ground anchors
         </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={settings.calibrating}
-            onChange={(e) => onSettings({ calibrating: e.target.checked })}
-          />
-          Calibrate floor plane
-        </label>
         <label className="stacked">
-          Snap: {settings.snapMeters === 0 ? 'off' : `${settings.snapMeters} m`}
+          Snap:{' '}
+          {settings.snapMeters === 0 ? 'off' : formatLength(settings.snapMeters, unit)}
           <input
             type="range"
             min={0}
